@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, monospace;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, monospace;
+
+  --color-bg: #07080a;
+  --color-panel: #0d0f12;
+  --color-panel-2: #14171c;
+  --color-line: #1e232b;
+  --color-line-strong: #2a313b;
+  --color-muted: #5a6472;
+  --color-dim: #8892a0;
+  --color-fg: #d6dde6;
+  --color-fg-strong: #ffffff;
+
+  --color-ok: #3ddc84;
+  --color-warn: #f4c21b;
+  --color-danger: #ff3b3b;
+  --color-accent: #7aa2ff;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #7aa2ff55;
+  color: #fff;
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.bg-scanline {
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.012) 0 1px,
+      transparent 1px 3px
+    );
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a313b transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2a313b;
+  border-radius: 0;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes urgent-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(255, 59, 59, 0);
+  }
+}
+.urgent-pulse {
+  animation: urgent-pulse 1.6s ease-out infinite;
+}
+
+@keyframes urgent-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.urgent-glow {
+  animation: urgent-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.slide-in-right {
+  animation: slide-in-right 180ms ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.fade-in {
+  animation: fade-in 140ms ease-out;
+}
