@@ -1,30 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AlertCircle, CheckCircle2, ChevronDown, Clock } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { getOfficerStatus } from "@/lib/status";
+import { cn } from "@/lib/utils";
 import { ExpirationTimeline } from "@/components/expiration-timeline";
 import { OfficerRow } from "@/components/officer-row";
+import { PageHeader } from "@/components/page-header";
 import { SidePanel } from "@/components/side-panel";
-import { cn } from "@/lib/utils";
 import type { CertStatus, Officer } from "@/lib/types";
 
-const GROUP_ORDER: CertStatus[] = ["expired", "expiring", "compliant"];
-const GROUP_LABEL: Record<CertStatus, string> = {
-  expired: "EXPIRED",
-  expiring: "EXPIRING SOON",
-  compliant: "COMPLIANT",
-};
-const GROUP_COLOR: Record<CertStatus, string> = {
-  expired: "var(--color-danger)",
-  expiring: "var(--color-warn)",
-  compliant: "var(--color-ok)",
-};
+const PREVIEW_COUNT = 3;
 
 export default function Page() {
-  const { officers, now, audit } = useStore();
+  const { officers, now } = useStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Record<CertStatus, boolean>>({
+    expired: false,
+    expiring: false,
+    compliant: false,
+  });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,108 +47,62 @@ export default function Page() {
 
   return (
     <>
-      <ExpirationTimeline
-        officers={filtered}
-        now={now}
-        onMarkerClick={(id) => setSelectedId(id)}
+      <PageHeader
+        title="COMMAND CENTER"
+        subtitle="Real-time certification status and training readiness"
+        query={query}
+        onQueryChange={setQuery}
       />
 
-      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--color-line)] bg-[color:var(--color-panel)]/60 px-4 py-2 text-[11px] uppercase tracking-[0.12em] text-[color:var(--color-dim)]">
-        <div className="flex items-center gap-3">
-          <span className="text-[color:var(--color-fg-strong)]">ROSTER</span>
-          <span className="text-[color:var(--color-muted)]">
-            {filtered.length} OFFICERS
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="SEARCH NAME / BADGE / UNIT / CERT"
-            className="w-[320px] border border-[color:var(--color-line-strong)] bg-[color:var(--color-bg)] px-2 py-1 text-[11px] uppercase tracking-wider text-[color:var(--color-fg)] placeholder:text-[color:var(--color-muted)] focus:border-[color:var(--color-accent)] focus:outline-none"
-          />
-        </div>
+      <div className="px-6 pt-5">
+        <ExpirationTimeline officers={filtered} now={now} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px]">
-        <div>
-          {GROUP_ORDER.map((g) => {
-            const rows = groups[g];
-            if (rows.length === 0) return null;
-            return (
-              <section key={g}>
-                <div
-                  className="flex items-center gap-3 border-b border-[color:var(--color-line-strong)] bg-[color:var(--color-panel-2)] px-4 py-1.5 text-[11px] uppercase tracking-[0.14em]"
-                  style={{ color: GROUP_COLOR[g] }}
-                >
-                  <span
-                    className={cn(
-                      "inline-block h-2 w-2",
-                      g === "expired" && "urgent-glow",
-                    )}
-                    style={{ background: GROUP_COLOR[g] }}
-                  />
-                  <span>{GROUP_LABEL[g]}</span>
-                  <span className="text-[color:var(--color-muted)]">
-                    · {rows.length}
-                  </span>
-                  <span className="ml-auto text-[color:var(--color-muted)]">
-                    {g === "expired" &&
-                      "ACTION REQUIRED · BRING OFFICER OFF-DUTY"}
-                    {g === "expiring" && "SCHEDULE RENEWAL ≤ 30D"}
-                    {g === "compliant" && "NO ACTION"}
-                  </span>
-                </div>
-                <div>
-                  {rows.map((o) => (
-                    <OfficerRow
-                      key={o.id}
-                      officer={o}
-                      now={now}
-                      onSelect={setSelectedId}
-                      selected={selectedId === o.id}
-                    />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-          {filtered.length === 0 && (
-            <div className="px-4 py-10 text-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted)]">
-              NO OFFICERS MATCH QUERY
-            </div>
-          )}
-        </div>
-
-        <aside className="border-t border-[color:var(--color-line)] bg-[color:var(--color-panel)] lg:border-l lg:border-t-0">
-          <div className="border-b border-[color:var(--color-line)] px-4 py-2 text-[11px] uppercase tracking-[0.14em] text-[color:var(--color-fg-strong)]">
-            ACTIVITY FEED
+      <div className="px-6 pt-4">
+        <Section
+          icon={<AlertCircle className="h-4 w-4" />}
+          label="EXPIRED"
+          accent="danger"
+          officers={groups.expired}
+          expanded={expanded.expired}
+          onToggle={() =>
+            setExpanded((e) => ({ ...e, expired: !e.expired }))
+          }
+          variant="expired"
+          onSelect={setSelectedId}
+          selectedId={selectedId}
+        />
+        <Section
+          icon={<Clock className="h-4 w-4" />}
+          label="EXPIRING SOON"
+          accent="warn"
+          officers={groups.expiring}
+          expanded={expanded.expiring}
+          onToggle={() =>
+            setExpanded((e) => ({ ...e, expiring: !e.expiring }))
+          }
+          variant="soon"
+          onSelect={setSelectedId}
+          selectedId={selectedId}
+        />
+        <Section
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="COMPLIANT"
+          accent="ok"
+          officers={groups.compliant}
+          expanded={expanded.compliant}
+          onToggle={() =>
+            setExpanded((e) => ({ ...e, compliant: !e.compliant }))
+          }
+          variant="compliant"
+          onSelect={setSelectedId}
+          selectedId={selectedId}
+        />
+        {filtered.length === 0 && (
+          <div className="mt-10 text-center text-[11px] uppercase tracking-wider text-[color:var(--color-muted)]">
+            NO OFFICERS MATCH QUERY
           </div>
-          <ul className="divide-y divide-[color:var(--color-line)]">
-            {audit.slice(0, 20).map((a) => (
-              <li
-                key={a.id}
-                className="flex items-start gap-2 px-4 py-2 text-[11px]"
-              >
-                <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 bg-[color:var(--color-accent)]" />
-                <div className="min-w-0">
-                  <div className="uppercase tracking-wider text-[color:var(--color-dim)]">
-                    {new Date(a.timestamp).toLocaleTimeString("en-US", {
-                      hour12: false,
-                    })}{" "}
-                    · {a.actor}
-                  </div>
-                  <div className="truncate text-[color:var(--color-fg)]">
-                    <span className="text-[color:var(--color-fg-strong)]">
-                      {a.action}
-                    </span>{" "}
-                    {a.target}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </aside>
+        )}
       </div>
 
       <SidePanel
@@ -159,5 +110,119 @@ export default function Page() {
         onClose={() => setSelectedId(null)}
       />
     </>
+  );
+}
+
+const ACCENT_COLOR: Record<"danger" | "warn" | "ok", string> = {
+  danger: "var(--color-danger)",
+  warn: "var(--color-warn)",
+  ok: "var(--color-ok)",
+};
+
+function Section({
+  icon,
+  label,
+  accent,
+  officers,
+  expanded,
+  onToggle,
+  variant,
+  onSelect,
+  selectedId,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  accent: "danger" | "warn" | "ok";
+  officers: Officer[];
+  expanded: boolean;
+  onToggle: () => void;
+  variant: "expired" | "soon" | "compliant";
+  onSelect: (id: string) => void;
+  selectedId: string | null;
+}) {
+  if (officers.length === 0) return null;
+
+  const visible = expanded ? officers : officers.slice(0, PREVIEW_COUNT);
+  const remaining = officers.length - visible.length;
+
+  return (
+    <section className="mt-5">
+      <div className="flex items-center gap-2 pb-2">
+        <span style={{ color: ACCENT_COLOR[accent] }}>{icon}</span>
+        <span
+          className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+          style={{ color: ACCENT_COLOR[accent] }}
+        >
+          {label}
+        </span>
+        <span
+          className="text-[11px] tabular-nums"
+          style={{ color: ACCENT_COLOR[accent] }}
+        >
+          ({officers.length})
+        </span>
+      </div>
+
+      <div className="border border-[color:var(--color-line)] bg-[color:var(--color-panel)]">
+        <ColumnHeader variant={variant} />
+        {visible.map((o) => (
+          <OfficerRow
+            key={o.id}
+            officer={o}
+            now={new Date()}
+            onSelect={onSelect}
+            selected={selectedId === o.id}
+            variant={variant}
+          />
+        ))}
+        {remaining > 0 && (
+          <button
+            onClick={onToggle}
+            className={cn(
+              "flex w-full items-center justify-center gap-1.5 border-t border-[color:var(--color-line)] bg-[color:var(--color-panel-2)]/50 py-2 text-[10px] uppercase tracking-wider text-[color:var(--color-dim)] hover:text-[color:var(--color-fg-strong)]",
+            )}
+          >
+            <ChevronDown
+              className={cn(
+                "h-3 w-3 transition-transform",
+                expanded && "rotate-180",
+              )}
+            />
+            + {remaining} MORE
+          </button>
+        )}
+        {expanded && officers.length > PREVIEW_COUNT && (
+          <button
+            onClick={onToggle}
+            className="flex w-full items-center justify-center gap-1.5 border-t border-[color:var(--color-line)] bg-[color:var(--color-panel-2)]/50 py-2 text-[10px] uppercase tracking-wider text-[color:var(--color-dim)] hover:text-[color:var(--color-fg-strong)]"
+          >
+            <ChevronDown className="h-3 w-3 rotate-180" />
+            COLLAPSE
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ColumnHeader({ variant }: { variant: "expired" | "soon" | "compliant" }) {
+  return (
+    <div
+      className={cn(
+        "grid items-center gap-4 border-b border-[color:var(--color-line)] bg-[color:var(--color-panel-2)]/60 px-5 py-2 text-[9px] uppercase tracking-[0.16em] text-[color:var(--color-muted)]",
+        variant === "expired"
+          ? "grid-cols-[minmax(0,220px)_80px_minmax(0,1fr)_160px_120px]"
+          : "grid-cols-[minmax(0,220px)_80px_minmax(0,1fr)_140px_60px_140px]",
+      )}
+    >
+      <span>OFFICER</span>
+      <span>BADGE</span>
+      <span>CERTIFICATIONS</span>
+      <span className="text-right">
+        {variant === "expired" ? "EXPIRED" : "NEXT EXPIRATION"}
+      </span>
+      {variant !== "expired" && <span className="text-right">DAYS LEFT</span>}
+      <span className="text-right">ACTIONS</span>
+    </div>
   );
 }

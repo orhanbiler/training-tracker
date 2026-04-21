@@ -2,176 +2,178 @@
 
 import { useMemo } from "react";
 import { cn, formatShortDate } from "@/lib/utils";
-import {
-  getCertDaysRemaining,
-  getCertStatus,
-  EXPIRING_WINDOW_DAYS,
-} from "@/lib/status";
+import { getCertDaysRemaining } from "@/lib/status";
 import type { Officer } from "@/lib/types";
 
 const WINDOW_DAYS = 90;
-const TICK_EVERY = 15;
+
+/**
+ * Six 15-day buckets across the next 90 days. Each bucket condenses every
+ * certification expiring in that window into a single cluster marker + a
+ * count badge. Cluster color is driven purely by proximity:
+ *   <= 15 days → danger
+ *   <= 45 days → warn
+ *   > 45 days  → ok
+ */
+const BUCKET_SIZE = 15;
+const BUCKETS = Array.from({ length: WINDOW_DAYS / BUCKET_SIZE }, (_, i) => ({
+  from: i * BUCKET_SIZE,
+  to: (i + 1) * BUCKET_SIZE,
+}));
+
+type ClusterColor = "danger" | "warn" | "ok";
+
+function colorFor(endDay: number): ClusterColor {
+  if (endDay <= 15) return "danger";
+  if (endDay <= 45) return "warn";
+  return "ok";
+}
+
+const COLOR_TEXT: Record<ClusterColor, string> = {
+  danger: "text-[color:var(--color-danger)]",
+  warn: "text-[color:var(--color-warn)]",
+  ok: "text-[color:var(--color-ok)]",
+};
+const COLOR_BG: Record<ClusterColor, string> = {
+  danger: "bg-[color:var(--color-danger)]",
+  warn: "bg-[color:var(--color-warn)]",
+  ok: "bg-[color:var(--color-ok)]",
+};
 
 export function ExpirationTimeline({
   officers,
   now,
-  onMarkerClick,
+  onClick,
 }: {
   officers: Officer[];
   now: Date;
-  onMarkerClick?: (officerId: string, certId: string) => void;
+  onClick?: () => void;
 }) {
-  const markers = useMemo(() => {
-    const out: Array<{
-      officerId: string;
-      officerName: string;
-      badge: string;
-      certId: string;
-      certCode: string;
-      days: number;
-      status: "expired" | "expiring" | "compliant";
-    }> = [];
+  const clusters = useMemo(() => {
+    type Item = { officerId: string; days: number };
+    const grouped = BUCKETS.map(() => [] as Item[]);
     for (const o of officers) {
       for (const c of o.certifications) {
-        const days = getCertDaysRemaining(c, now);
-        if (days > WINDOW_DAYS) continue;
-        out.push({
-          officerId: o.id,
-          officerName: o.name,
-          badge: o.badge,
-          certId: c.id,
-          certCode: c.code,
-          days,
-          status: getCertStatus(c, now),
-        });
+        const d = getCertDaysRemaining(c, now);
+        if (d < 0 || d > WINDOW_DAYS) continue;
+        const idx = Math.min(
+          BUCKETS.length - 1,
+          Math.floor(d / BUCKET_SIZE),
+        );
+        grouped[idx].push({ officerId: o.id, days: d });
       }
     }
-    return out;
+    return BUCKETS.map((b, i) => ({
+      ...b,
+      items: grouped[i],
+      color: colorFor(b.to),
+    }));
   }, [officers, now]);
 
-  // % position along the 0..90 axis; expired items clamp to the far-left edge.
-  const posFor = (days: number) => {
-    const clamped = Math.max(0, Math.min(WINDOW_DAYS, days));
-    return (clamped / WINDOW_DAYS) * 100;
-  };
-
-  const ticks: number[] = [];
-  for (let d = 0; d <= WINDOW_DAYS; d += TICK_EVERY) ticks.push(d);
-
-  const expiredCount = markers.filter((m) => m.status === "expired").length;
-
   return (
-    <section className="border-b border-[color:var(--color-line)] bg-[color:var(--color-panel)]">
-      <div className="flex items-center justify-between px-4 pt-3 text-[11px] uppercase tracking-[0.12em] text-[color:var(--color-dim)]">
-        <div className="flex items-center gap-3">
-          <span className="text-[color:var(--color-fg-strong)]">
-            EXPIRATION TIMELINE
-          </span>
-          <span className="text-[color:var(--color-muted)]">
-            NEXT {WINDOW_DAYS} DAYS · {markers.length} EVENTS
-          </span>
+    <section
+      onClick={onClick}
+      className={cn(
+        "border border-[color:var(--color-line)] bg-[color:var(--color-panel)] px-5 py-4",
+        onClick && "cursor-pointer hover:border-[color:var(--color-line-strong)]",
+      )}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-[color:var(--color-fg-strong)]">
+            EXPIRATIONS TIMELINE
+          </div>
+          <div className="text-[10px] uppercase tracking-wider text-[color:var(--color-muted)]">
+            NEXT {WINDOW_DAYS} DAYS
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <LegendDot color="var(--color-danger)" label={`EXPIRED ${expiredCount}`} />
-          <LegendDot color="var(--color-warn)" label={`≤ ${EXPIRING_WINDOW_DAYS}D`} />
-          <LegendDot color="var(--color-ok)" label={`> ${EXPIRING_WINDOW_DAYS}D`} />
-        </div>
+        <a
+          href="/expirations"
+          onClick={(e) => e.stopPropagation()}
+          className="text-[10px] uppercase tracking-wider text-[color:var(--color-dim)] hover:text-[color:var(--color-fg-strong)]"
+        >
+          VIEW EXPIRATIONS →
+        </a>
       </div>
 
-      <div className="relative mx-4 my-3 h-24">
-        {/* Expired bucket (left gutter) */}
-        <div className="absolute inset-y-0 left-0 w-[56px] border-r border-[color:var(--color-line)]">
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <span className="text-[9px] uppercase tracking-wider text-[color:var(--color-muted)]">
-              EXPIRED
-            </span>
-            <span
-              className={cn(
-                "text-lg tabular-nums",
-                expiredCount > 0
-                  ? "text-[color:var(--color-danger)] urgent-glow"
-                  : "text-[color:var(--color-muted)]",
-              )}
-            >
-              {expiredCount.toString().padStart(2, "0")}
-            </span>
+      <div className="relative mt-6 h-20">
+        {/* Base axis */}
+        <div className="absolute left-0 right-0 top-14 h-px bg-[color:var(--color-line-strong)]" />
+
+        {/* Today tick */}
+        <div className="absolute left-0 top-14 -translate-y-1/2">
+          <div className="h-2 w-2 rounded-full bg-[color:var(--color-fg-strong)]" />
+          <div className="absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap text-[10px] uppercase tracking-wider text-[color:var(--color-dim)]">
+            TODAY
           </div>
         </div>
 
-        {/* Timeline track */}
-        <div className="absolute inset-y-0 left-[64px] right-0">
-          {/* Axis line */}
-          <div className="absolute left-0 right-0 top-1/2 h-px bg-[color:var(--color-line-strong)]" />
-
-          {/* Danger zone shading ( <=30 days ) */}
-          <div
-            className="absolute inset-y-0 left-0 bg-[color:var(--color-warn)]/5"
-            style={{ width: `${(EXPIRING_WINDOW_DAYS / WINDOW_DAYS) * 100}%` }}
-          />
-
-          {/* Ticks */}
-          {ticks.map((d) => (
+        {/* Clusters — one per bucket */}
+        {clusters.map((c, i) => {
+          // Position at the right edge of each bucket: (i+1)/N * 100%
+          const pct = ((i + 1) / BUCKETS.length) * 100;
+          const dateLabel = formatShortDate(
+            new Date(now.getTime() + c.to * 86400_000),
+          ).toUpperCase();
+          const count = c.items.length;
+          return (
             <div
-              key={d}
-              className="absolute top-0 bottom-0 border-l border-dashed border-[color:var(--color-line)]"
-              style={{ left: `${posFor(d)}%` }}
+              key={i}
+              className="absolute top-0 bottom-0 -translate-x-1/2"
+              style={{ left: `${pct}%` }}
             >
-              <div className="absolute -top-px left-1 text-[9px] uppercase tracking-wider text-[color:var(--color-muted)]">
-                {d === 0 ? "TODAY" : `+${d}D`}
-              </div>
-              <div className="absolute bottom-0 left-1 text-[9px] tabular-nums text-[color:var(--color-muted)]">
-                {formatShortDate(
-                  new Date(now.getTime() + d * 86400_000),
+              {/* Count badge */}
+              {count > 0 && (
+                <div
+                  className={cn(
+                    "absolute top-0 left-1/2 -translate-x-1/2 flex h-6 min-w-6 items-center justify-center rounded-full border px-1.5 text-[11px] tabular-nums",
+                    c.color === "danger" &&
+                      "border-[color:var(--color-danger)]/60 bg-[color:var(--color-danger)]/15 text-[color:var(--color-danger)] urgent-glow",
+                    c.color === "warn" &&
+                      "border-[color:var(--color-warn)]/60 bg-[color:var(--color-warn)]/15 text-[color:var(--color-warn)]",
+                    c.color === "ok" &&
+                      "border-[color:var(--color-ok)]/60 bg-[color:var(--color-ok)]/15 text-[color:var(--color-ok)]",
+                  )}
+                >
+                  {count}
+                </div>
+              )}
+
+              {/* Dot cluster */}
+              <div className="absolute top-10 left-1/2 flex -translate-x-1/2 items-center gap-0.5">
+                {count === 0 ? (
+                  <span
+                    className={cn(
+                      "h-1 w-1 rounded-full opacity-30",
+                      COLOR_BG[c.color],
+                    )}
+                  />
+                ) : (
+                  Array.from({ length: Math.min(count, 6) }).map((_, j) => (
+                    <span
+                      key={j}
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        COLOR_BG[c.color],
+                      )}
+                    />
+                  ))
                 )}
               </div>
-            </div>
-          ))}
 
-          {/* Markers */}
-          {markers
-            .filter((m) => m.status !== "expired")
-            .map((m, i) => (
-              <button
-                key={m.certId + i}
-                onClick={() => onMarkerClick?.(m.officerId, m.certId)}
-                className="group absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-                style={{ left: `${posFor(m.days)}%` }}
-                title={`${m.officerName} · ${m.certCode} · ${m.days}D`}
+              {/* Date label */}
+              <div
+                className={cn(
+                  "absolute top-[72px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] uppercase tracking-wider",
+                  count > 0 ? COLOR_TEXT[c.color] : "text-[color:var(--color-muted)]",
+                )}
               >
-                <span
-                  className={cn(
-                    "block h-2.5 w-2.5 rotate-45 border",
-                    m.status === "expiring"
-                      ? "border-[color:var(--color-warn)] bg-[color:var(--color-warn)]/40"
-                      : "border-[color:var(--color-ok)] bg-[color:var(--color-ok)]/30",
-                  )}
-                />
-                <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 hidden -translate-x-1/2 whitespace-nowrap border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel-2)] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[color:var(--color-fg)] group-hover:block">
-                  {m.badge} · {m.certCode} · {m.days}D
-                </span>
-              </button>
-            ))}
-
-          {/* Today marker */}
-          <div
-            className="absolute top-0 bottom-0 w-px bg-[color:var(--color-accent)]"
-            style={{ left: `${posFor(0)}%` }}
-          >
-            <span className="absolute -top-2 left-1 bg-[color:var(--color-bg)] px-1 text-[9px] uppercase tracking-wider text-[color:var(--color-accent)]">
-              NOW
-            </span>
-          </div>
-        </div>
+                {dateLabel}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
-  );
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="inline-block h-1.5 w-1.5" style={{ background: color }} />
-      {label}
-    </span>
   );
 }

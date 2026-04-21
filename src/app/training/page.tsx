@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
 import { cn, daysBetween, formatDate } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 export default function TrainingPage() {
   const { training, officers, now, assignToTraining } = useStore();
@@ -31,21 +32,18 @@ export default function TrainingPage() {
     : [];
 
   return (
-    <div>
-      <div className="flex items-center justify-between border-b border-[color:var(--color-line)] bg-[color:var(--color-panel)]/60 px-4 py-2 text-[11px] uppercase tracking-[0.12em]">
-        <div className="flex items-center gap-3">
-          <span className="text-[color:var(--color-fg-strong)]">
-            TRAINING SCHEDULE
-          </span>
-          <span className="text-[color:var(--color-muted)]">
-            {sessions.length} SESSIONS · LIST-FIRST
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
+    <>
+      <PageHeader
+        title="TRAINING SCHEDULE"
+        subtitle={`${sessions.length} upcoming sessions — click to assign officers`}
+      />
+      <div className="px-6 py-5">
+        <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider">
+          <span className="text-[color:var(--color-muted)]">FILTER</span>
           <button
             onClick={() => setCodeFilter("")}
             className={cn(
-              "border px-2 py-1 text-[10px] uppercase tracking-wider",
+              "border px-2 py-1",
               codeFilter === ""
                 ? "border-[color:var(--color-fg-strong)] text-[color:var(--color-fg-strong)]"
                 : "border-[color:var(--color-line-strong)] text-[color:var(--color-dim)]",
@@ -58,7 +56,7 @@ export default function TrainingPage() {
               key={c}
               onClick={() => setCodeFilter(c)}
               className={cn(
-                "border px-2 py-1 text-[10px] uppercase tracking-wider",
+                "border px-2 py-1",
                 codeFilter === c
                   ? "border-[color:var(--color-fg-strong)] text-[color:var(--color-fg-strong)]"
                   : "border-[color:var(--color-line-strong)] text-[color:var(--color-dim)]",
@@ -68,9 +66,8 @@ export default function TrainingPage() {
             </button>
           ))}
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid grid-cols-1 border border-[color:var(--color-line)] bg-[color:var(--color-panel)] lg:grid-cols-[minmax(0,1fr)_380px]">
         <ul>
           {sessions.map((t) => {
             const d = new Date(t.date);
@@ -203,8 +200,9 @@ export default function TrainingPage() {
             </div>
           )}
         </aside>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

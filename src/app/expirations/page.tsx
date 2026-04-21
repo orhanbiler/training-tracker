@@ -9,6 +9,7 @@ import {
 } from "@/lib/status";
 import { StatusTag } from "@/components/status-tag";
 import { SidePanel } from "@/components/side-panel";
+import { PageHeader } from "@/components/page-header";
 
 interface Row {
   officerId: string;
@@ -83,17 +84,13 @@ export default function ExpirationsPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between border-b border-[color:var(--color-line)] bg-[color:var(--color-panel)]/60 px-4 py-2 text-[11px] uppercase tracking-[0.12em]">
-        <div className="flex items-center gap-3">
-          <span className="text-[color:var(--color-fg-strong)]">
-            EXPIRATION QUEUE
-          </span>
-          <span className="text-[color:var(--color-muted)]">
-            {rows.length} TOTAL · URGENCY SORTED
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider">
+    <>
+      <PageHeader
+        title="EXPIRATION QUEUE"
+        subtitle={`${rows.length} certifications sorted by urgency`}
+      />
+      <div className="flex items-center justify-end gap-2 border-b border-[color:var(--color-line)] bg-[color:var(--color-panel)]/60 px-6 py-2 text-[10px] uppercase tracking-wider">
+        <div className="flex items-center gap-2">
           <span className="text-[color:var(--color-muted)]">
             SELECTED {selected.size.toString().padStart(2, "0")}
           </span>
@@ -114,7 +111,8 @@ export default function ExpirationsPage() {
         </div>
       </div>
 
-      <table className="w-full border-collapse text-[12px]">
+      <div className="px-6 py-4">
+      <table className="w-full border border-[color:var(--color-line)] bg-[color:var(--color-panel)] text-[12px]">
         <thead>
           <tr className="border-b border-[color:var(--color-line-strong)] bg-[color:var(--color-panel-2)] text-[10px] uppercase tracking-[0.14em] text-[color:var(--color-dim)]">
             <th className="px-3 py-2 text-left">
@@ -205,10 +203,11 @@ export default function ExpirationsPage() {
           ))}
         </tbody>
       </table>
+      </div>
       <SidePanel
         officerId={openOfficerId}
         onClose={() => setOpenOfficerId(null)}
       />
-    </div>
+    </>
   );
 }

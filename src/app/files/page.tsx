@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { cn, formatDate } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 export default function FilesPage() {
   const { files, officers, logAudit } = useStore();
@@ -42,19 +43,12 @@ export default function FilesPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between border-b border-[color:var(--color-line)] bg-[color:var(--color-panel)]/60 px-4 py-2 text-[11px] uppercase tracking-[0.12em]">
-        <div className="flex items-center gap-3">
-          <span className="text-[color:var(--color-fg-strong)]">
-            CERTIFICATION FILES
-          </span>
-          <span className="text-[color:var(--color-muted)]">
-            {localFiles.length} TOTAL
-          </span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
+    <>
+      <PageHeader
+        title="CERTIFICATION FILES"
+        subtitle={`${localFiles.length} attached documents`}
+      />
+      <div className="grid grid-cols-1 border-b border-[color:var(--color-line)] lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="border-b border-[color:var(--color-line)] lg:border-b-0 lg:border-r">
           <div className="border-b border-[color:var(--color-line)] px-4 py-2 text-[10px] uppercase tracking-[0.14em] text-[color:var(--color-dim)]">
             OFFICERS
@@ -152,6 +146,6 @@ export default function FilesPage() {
           )}
         </section>
       </div>
-    </div>
+    </>
   );
 }
