@@ -17,12 +17,13 @@ import { PageHeader } from "@/components/page-header";
 import { SidePanel } from "@/components/side-panel";
 import { EmptyState } from "@/components/empty-state";
 import { AddOfficerDialog } from "@/components/add-officer-dialog";
+import { FirestoreErrorPanel } from "@/components/firestore-error-panel";
 import type { CertStatus, Officer } from "@/lib/types";
 
 const PREVIEW_COUNT = 3;
 
 export default function Page() {
-  const { officers, now, loading, isEmpty } = useStore();
+  const { officers, now, loading, isEmpty, error } = useStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -65,7 +66,11 @@ export default function Page() {
         addLabel="ADD OFFICER"
       />
 
-      {loading ? (
+      {error ? (
+        <div className="px-6">
+          <FirestoreErrorPanel error={error} />
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center gap-2 py-20 text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-dim)]">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           LOADING ROSTER

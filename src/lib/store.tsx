@@ -38,6 +38,12 @@ export interface UploadProgress {
   totalBytes: number;
 }
 
+export interface StoreError {
+  code: string;
+  message: string;
+  kind: "permission-denied" | "unavailable" | "unknown";
+}
+
 interface StoreValue {
   officers: Officer[];
   training: TrainingSession[];
@@ -46,6 +52,7 @@ interface StoreValue {
   now: Date;
   loading: boolean;
   isEmpty: boolean;
+  error: StoreError | null;
   renewCertification: (officerId: string, certId: string) => Promise<void>;
   assignToTraining: (trainingId: string, officerId: string) => Promise<void>;
   logAudit: (entry: Omit<Audit, "id" | "timestamp">) => Promise<void>;
@@ -86,6 +93,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [trainingLoaded, setTrainingLoaded] = useState(false);
   const [filesLoaded, setFilesLoaded] = useState(false);
   const [auditLoaded, setAuditLoaded] = useState(false);
+  const [error, setError] = useState<StoreError | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 30_000);
@@ -95,26 +103,64 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return;
     const db = firebaseDb();
+
+    // Central error handler. Any subscription failure flips the matching
+    // loaded flag so `loading` resolves (no infinite spinner) and surfaces
+    // a structured error for the UI to render.
+    const handleErr = (markLoaded: () => void) => (err: unknown) => {
+      const code = (err as { code?: string })?.code ?? "unknown";
+      const kind: StoreError["kind"] =
+        code === "permission-denied"
+          ? "permission-denied"
+          : code === "unavailable"
+          ? "unavailable"
+          : "unknown";
+      setError({
+        code,
+        kind,
+        message:
+          (err as Error)?.message ?? "Failed to subscribe to Firestore.",
+      });
+      markLoaded();
+    };
+
     const unsubs: Array<() => void> = [
-      onSnapshot(collection(db, "officers"), (s) => {
-        setOfficers(mapSnapshot<Officer>(s));
-        setOfficersLoaded(true);
-      }),
-      onSnapshot(collection(db, "training"), (s) => {
-        setTraining(mapSnapshot<TrainingSession>(s));
-        setTrainingLoaded(true);
-      }),
-      onSnapshot(collection(db, "files"), (s) => {
-        setFiles(mapSnapshot<AttachedFile>(s));
-        setFilesLoaded(true);
-      }),
-      onSnapshot(collection(db, "audit"), (s) => {
-        const rows = mapSnapshot<Audit>(s).sort((a, b) =>
-          (b.timestamp ?? "").localeCompare(a.timestamp ?? ""),
-        );
-        setAudit(rows);
-        setAuditLoaded(true);
-      }),
+      onSnapshot(
+        collection(db, "officers"),
+        (s) => {
+          setOfficers(mapSnapshot<Officer>(s));
+          setOfficersLoaded(true);
+          setError((e) => (e?.kind === "permission-denied" ? null : e));
+        },
+        handleErr(() => setOfficersLoaded(true)),
+      ),
+      onSnapshot(
+        collection(db, "training"),
+        (s) => {
+          setTraining(mapSnapshot<TrainingSession>(s));
+          setTrainingLoaded(true);
+        },
+        handleErr(() => setTrainingLoaded(true)),
+      ),
+      onSnapshot(
+        collection(db, "files"),
+        (s) => {
+          setFiles(mapSnapshot<AttachedFile>(s));
+          setFilesLoaded(true);
+        },
+        handleErr(() => setFilesLoaded(true)),
+      ),
+      onSnapshot(
+        collection(db, "audit"),
+        (s) => {
+          const rows = mapSnapshot<Audit>(s).sort((a, b) =>
+            (b.timestamp ?? "").localeCompare(a.timestamp ?? ""),
+          );
+          setAudit(rows);
+          setAuditLoaded(true);
+        },
+        handleErr(() => setAuditLoaded(true)),
+      ),
     ];
     return () => {
       unsubs.forEach((fn) => fn());
@@ -129,14 +175,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const actor = user?.email ?? "system";
 
+  // Audit is best-effort: a permission / network failure here must never
+  // cascade into user-visible failures of the triggering mutation.
   const logAudit = useCallback(
     async (entry: Omit<Audit, "id" | "timestamp">) => {
-      const db = firebaseDb();
-      await addDoc(collection(db, "audit"), {
-        ...entry,
-        timestamp: new Date().toISOString(),
-        serverTs: serverTimestamp(),
-      });
+      try {
+        const db = firebaseDb();
+        await addDoc(collection(db, "audit"), {
+          ...entry,
+          timestamp: new Date().toISOString(),
+          serverTs: serverTimestamp(),
+        });
+      } catch (err) {
+        if (typeof console !== "undefined") {
+          console.warn("[audit] write failed", err);
+        }
+      }
     },
     [],
   );
@@ -334,6 +388,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       now,
       loading,
       isEmpty,
+      error,
       renewCertification,
       assignToTraining,
       logAudit,
@@ -350,6 +405,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       now,
       loading,
       isEmpty,
+      error,
       renewCertification,
       assignToTraining,
       logAudit,

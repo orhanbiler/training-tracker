@@ -19,7 +19,16 @@ export function EmptyState({
     try {
       await seedDemoData();
     } catch (e) {
-      setError((e as Error)?.message ?? "SEED FAILED");
+      const code = (e as { code?: string })?.code;
+      if (code === "permission-denied") {
+        setError(
+          "PERMISSION DENIED — UPDATE YOUR FIRESTORE RULES TO ALLOW SIGNED-IN WRITES",
+        );
+      } else if (code === "unavailable") {
+        setError("FIRESTORE UNAVAILABLE — CHECK YOUR CONNECTION");
+      } else {
+        setError((e as Error)?.message?.toUpperCase?.() ?? "SEED FAILED");
+      }
     } finally {
       setSeeding(false);
     }

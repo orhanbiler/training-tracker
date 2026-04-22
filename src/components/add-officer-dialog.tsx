@@ -72,10 +72,21 @@ function AddOfficerDialogBody({ onClose }: { onClose: () => void }) {
       });
       onClose();
     } catch (e) {
-      setError((e as Error)?.message ?? "FAILED TO CREATE OFFICER");
+      setError(friendlyFirestoreError(e));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function friendlyFirestoreError(e: unknown): string {
+    const code = (e as { code?: string })?.code;
+    if (code === "permission-denied")
+      return "PERMISSION DENIED — YOUR FIRESTORE RULES ARE BLOCKING WRITES";
+    if (code === "unavailable")
+      return "FIRESTORE UNAVAILABLE — CHECK YOUR CONNECTION";
+    return (
+      (e as Error)?.message?.toUpperCase?.() ?? "FAILED TO CREATE OFFICER"
+    );
   }
 
   return (
