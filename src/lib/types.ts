@@ -37,7 +37,8 @@ export interface AttachedFile {
   contentType?: string;
   uploadedAt: string; // ISO
   officerId: string;
-  certificationId: string;
+  /** Optional — files can be attached to an officer without a specific cert. */
+  certificationId?: string;
   /** Firebase Storage object path — used for deletion. */
   storagePath?: string;
   /** Public download URL returned by Firebase Storage. */

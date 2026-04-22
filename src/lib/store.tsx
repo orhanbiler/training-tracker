@@ -68,7 +68,8 @@ interface StoreValue {
   attachFile: (params: {
     file: File;
     officerId: string;
-    certificationId: string;
+    /** Optional — omit to attach to the officer without a cert. */
+    certificationId?: string;
     onProgress?: (progress: UploadProgress) => void;
   }) => Promise<AttachedFile>;
   deleteFile: (file: AttachedFile) => Promise<void>;
@@ -294,7 +295,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       // Sanitize filename for storage path — keep extension, replace unsafe chars.
       const safeName = file.name.replace(/[^\w.\-]+/g, "_");
-      const storagePath = `officers/${officerId}/${certificationId}/${Date.now()}-${safeName}`;
+      const bucket = certificationId ?? "general";
+      const storagePath = `officers/${officerId}/${bucket}/${Date.now()}-${safeName}`;
       const ref = storageRef(storage, storagePath);
       const task = uploadBytesResumable(ref, file, {
         contentType: file.type || "application/octet-stream",
@@ -320,16 +322,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       const downloadURL = await getDownloadURL(task.snapshot.ref);
 
-      const meta = {
+      // Firestore rejects undefined values, so omit the cert key entirely
+      // when no cert is selected instead of writing `undefined`.
+      const meta: Omit<AttachedFile, "id"> = {
         name: file.name,
         size: file.size,
         contentType: file.type || undefined,
         uploadedAt: new Date().toISOString(),
         officerId,
-        certificationId,
         storagePath,
         downloadURL,
         uploadedBy: actor,
+        ...(certificationId ? { certificationId } : {}),
       };
       const docRef = await addDoc(collection(db, "files"), meta);
       await logAudit({

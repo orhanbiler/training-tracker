@@ -128,8 +128,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsub();
   }, []);
 
+  // NOTE: we eagerly hydrate and set the user inside signIn/signUp so that
+  // callers can navigate to a protected route synchronously after the promise
+  // resolves. Relying on onAuthStateChanged alone introduces a race where
+  // AuthGate mounts before the listener fires and bounces the user back to
+  // /login (causing the "click Sign In twice" bug).
   const signIn = useCallback(async (email: string, password: string) => {
-    await signInWithEmailAndPassword(firebaseAuth(), email, password);
+    const cred = await signInWithEmailAndPassword(
+      firebaseAuth(),
+      email,
+      password,
+    );
+    const hydrated = await hydrateUser(cred.user);
+    setUser(hydrated);
+    setLoading(false);
   }, []);
 
   const signUp = useCallback(
@@ -142,12 +154,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (name) {
         await updateProfile(cred.user, { displayName: name });
       }
+      const hydrated = await hydrateUser(cred.user);
+      setUser(hydrated);
+      setLoading(false);
     },
     [],
   );
 
   const signOut = useCallback(async () => {
     await fbSignOut(firebaseAuth());
+    // Eagerly clear so AuthGate can redirect immediately.
+    setUser(null);
   }, []);
 
   const value = useMemo<AuthValue>(

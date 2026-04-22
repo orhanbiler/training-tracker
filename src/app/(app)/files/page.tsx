@@ -34,7 +34,8 @@ export default function FilesPage() {
   const officerId = selectedOfficerId ?? officers[0]?.id ?? "";
   const currentOfficer = officers.find((o) => o.id === officerId);
   const officerCerts = currentOfficer?.certifications ?? [];
-  const activeCertId = certId || officerCerts[0]?.id || "";
+  // certId is optional — empty string means "no cert association" ("GENERAL").
+  const activeCertId = certId;
 
   const officerFiles = useMemo(
     () =>
@@ -45,8 +46,8 @@ export default function FilesPage() {
   );
 
   async function doUpload(file: File) {
-    if (!officerId || !activeCertId) {
-      setError("SELECT AN OFFICER AND CERTIFICATION FIRST");
+    if (!officerId) {
+      setError("SELECT AN OFFICER FIRST");
       return;
     }
     if (file.size > MAX_SIZE) {
@@ -60,7 +61,7 @@ export default function FilesPage() {
       await attachFile({
         file,
         officerId,
-        certificationId: activeCertId,
+        certificationId: activeCertId || undefined,
         onProgress: setProgress,
       });
     } catch (e) {
@@ -162,9 +163,18 @@ export default function FilesPage() {
         >
           <div className="flex flex-wrap items-center gap-2 border-b border-[color:var(--color-line)] bg-[color:var(--color-panel)] px-4 py-2 text-[10px] uppercase tracking-wider">
             <span className="text-[color:var(--color-dim)]">CERT</span>
-            {officerCerts.length === 0 && (
-              <span className="text-[color:var(--color-muted)]">—</span>
-            )}
+            <button
+              onClick={() => setCertId("")}
+              className={cn(
+                "border px-2 py-1",
+                activeCertId === ""
+                  ? "border-[color:var(--color-fg-strong)] text-[color:var(--color-fg-strong)]"
+                  : "border-[color:var(--color-line-strong)] text-[color:var(--color-dim)]",
+              )}
+              title="No specific certification — file attaches to officer only"
+            >
+              GENERAL
+            </button>
             {officerCerts.map((c) => (
               <button
                 key={c.id}
@@ -193,8 +203,7 @@ export default function FilesPage() {
                 htmlFor="file-upload"
                 className={cn(
                   "flex cursor-pointer items-center gap-1.5 border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel-2)] px-2 py-1 hover:border-[color:var(--color-fg)] hover:text-[color:var(--color-fg-strong)]",
-                  (!officerId || !activeCertId) &&
-                    "pointer-events-none opacity-40",
+                  !officerId && "pointer-events-none opacity-40",
                 )}
               >
                 <Upload className="h-3 w-3" />
@@ -228,7 +237,7 @@ export default function FilesPage() {
               SELECT AN OFFICER TO VIEW FILES
             </div>
           ) : officerFiles.length === 0 ? (
-            <DropZone hasCert={Boolean(activeCertId)} />
+            <DropZone />
           ) : (
             <ul>
               {officerFiles.map((f) => {
@@ -264,7 +273,7 @@ export default function FilesPage() {
                       )}
                     </div>
                     <span className="text-[11px] uppercase tracking-wider text-[color:var(--color-dim)]">
-                      {cert?.code ?? "—"}
+                      {cert?.code ?? (f.certificationId ? "—" : "GENERAL")}
                     </span>
                     <span className="tabular-nums text-[color:var(--color-muted)]">
                       {formatBytes(f.size)}
@@ -347,7 +356,7 @@ function UploadingRow({
   );
 }
 
-function DropZone({ hasCert }: { hasCert: boolean }) {
+function DropZone() {
   return (
     <div className="m-4 flex flex-col items-center justify-center gap-2 border border-dashed border-[color:var(--color-line-strong)] bg-[color:var(--color-panel)] px-4 py-10 text-center">
       <Upload className="h-6 w-6 text-[color:var(--color-dim)]" />
@@ -355,9 +364,7 @@ function DropZone({ hasCert }: { hasCert: boolean }) {
         NO FILES ATTACHED
       </div>
       <div className="text-[10px] uppercase tracking-wider text-[color:var(--color-muted)]">
-        {hasCert
-          ? "Drop a file here or click ATTACH FILE"
-          : "Add a certification to this officer first"}
+        Drop a file here or click ATTACH FILE
       </div>
     </div>
   );
