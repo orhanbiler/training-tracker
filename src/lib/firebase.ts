@@ -2,12 +2,6 @@ import { FirebaseApp, getApps, initializeApp } from "firebase/app";
 import { Auth, getAuth } from "firebase/auth";
 import { Firestore, getFirestore } from "firebase/firestore";
 
-/**
- * Firebase is optional in this demo. If any of the public env vars are
- * missing we fall through to the in-memory mock data layer. That keeps
- * the app fully operational in offline / preview environments while
- * still using real Firestore listeners when configured.
- */
 const config = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -17,7 +11,7 @@ const config = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-export const firebaseEnabled = Boolean(
+export const firebaseConfigured = Boolean(
   config.apiKey && config.authDomain && config.projectId && config.appId,
 );
 
@@ -25,14 +19,30 @@ let _app: FirebaseApp | null = null;
 let _auth: Auth | null = null;
 let _db: Firestore | null = null;
 
-export function getFirebase() {
-  if (!firebaseEnabled) return null;
-  if (!_app) {
-    _app = getApps().length
-      ? getApps()[0]
-      : initializeApp(config as Record<string, string>);
-    _auth = getAuth(_app);
-    _db = getFirestore(_app);
+function init() {
+  if (!firebaseConfigured) {
+    throw new Error(
+      "Firebase is not configured. Set NEXT_PUBLIC_FIREBASE_* environment variables.",
+    );
   }
-  return { app: _app!, auth: _auth!, db: _db! };
+  _app = getApps().length
+    ? getApps()[0]
+    : initializeApp(config as Record<string, string>);
+  _auth = getAuth(_app);
+  _db = getFirestore(_app);
+}
+
+export function firebaseApp() {
+  if (!_app) init();
+  return _app!;
+}
+
+export function firebaseAuth() {
+  if (!_auth) init();
+  return _auth!;
+}
+
+export function firebaseDb() {
+  if (!_db) init();
+  return _db!;
 }

@@ -1,8 +1,18 @@
-import { AttachedFile, Audit, Officer, TrainingSession } from "./types";
+import {
+  collection,
+  doc,
+  getDocs,
+  serverTimestamp,
+  writeBatch,
+} from "firebase/firestore";
+import { firebaseDb } from "./firebase";
+import { CERTIFICATION_NAMES } from "./certifications";
+import type { AttachedFile, Audit, Officer, TrainingSession } from "./types";
 
 /**
- * Deterministic demo dataset. Dates are generated relative to the current
- * day so the timeline always looks "live" without needing a real backend.
+ * One-click demo data for an empty Firestore. Generates realistic officers
+ * with a mix of expired / soon / compliant certifications relative to TODAY
+ * so the timeline immediately looks meaningful.
  */
 
 function offsetDate(days: number): string {
@@ -11,24 +21,6 @@ function offsetDate(days: number): string {
   d.setDate(d.getDate() + days);
   return d.toISOString();
 }
-
-const CERT_CATALOG = [
-  { code: "FRA", name: "Firearms Qualification" },
-  { code: "CPR", name: "CPR / AED" },
-  { code: "TSR", name: "Taser Recertification" },
-  { code: "DRV", name: "EVOC Driving" },
-  { code: "DEF", name: "Defensive Tactics" },
-  { code: "K9", name: "K-9 Handler" },
-  { code: "CIT", name: "Crisis Intervention" },
-  { code: "RAD", name: "Radar / Lidar" },
-  { code: "FTO", name: "Field Training Officer" },
-  { code: "SWT", name: "SWAT Qualification" },
-];
-
-export const CERTIFICATION_CODES = CERT_CATALOG.map((c) => c.code);
-export const CERTIFICATION_NAMES: Record<string, string> = Object.fromEntries(
-  CERT_CATALOG.map((c) => [c.code, c.name]),
-);
 
 type OfficerSeed = {
   id: string;
@@ -191,153 +183,161 @@ const SEED: OfficerSeed[] = [
   },
 ];
 
-export const MOCK_OFFICERS: Officer[] = SEED.map((s) => ({
-  id: s.id,
-  name: s.name,
-  badge: s.badge,
-  rank: s.rank,
-  unit: s.unit,
-  certifications: s.certs.map((c) => ({
-    id: `${s.id}-${c.code}`,
-    code: c.code,
-    name: CERTIFICATION_NAMES[c.code],
-    issuedAt: offsetDate(c.issuedOffset),
-    expiresAt: offsetDate(c.expiresOffset),
-  })),
-}));
+function buildOfficers(): Officer[] {
+  return SEED.map((s) => ({
+    id: s.id,
+    name: s.name,
+    badge: s.badge,
+    rank: s.rank,
+    unit: s.unit,
+    certifications: s.certs.map((c) => ({
+      id: `${s.id}-${c.code}`,
+      code: c.code,
+      name: CERTIFICATION_NAMES[c.code],
+      issuedAt: offsetDate(c.issuedOffset),
+      expiresAt: offsetDate(c.expiresOffset),
+    })),
+  }));
+}
 
-export const MOCK_TRAINING: TrainingSession[] = [
-  {
-    id: "t-001",
-    title: "Firearms Requalification",
-    code: "FRA",
-    date: offsetDate(3),
-    durationHours: 4,
-    location: "Range 2",
-    instructor: "Sgt. Alvarez",
-    capacity: 12,
-    assignedOfficerIds: ["o-1041", "o-1012", "o-0871"],
-  },
-  {
-    id: "t-002",
-    title: "CPR / AED Recert",
-    code: "CPR",
-    date: offsetDate(6),
-    durationHours: 3,
-    location: "HQ Training Rm B",
-    instructor: "EMS Corps",
-    capacity: 20,
-    assignedOfficerIds: ["o-1122", "o-1012", "o-1444"],
-  },
-  {
-    id: "t-003",
-    title: "Crisis Intervention Team",
-    code: "CIT",
-    date: offsetDate(10),
-    durationHours: 8,
-    location: "Academy",
-    instructor: "Dr. Patel",
-    capacity: 16,
-    assignedOfficerIds: ["o-0904", "o-0733"],
-  },
-  {
-    id: "t-004",
-    title: "Taser Recertification",
-    code: "TSR",
-    date: offsetDate(14),
-    durationHours: 2,
-    location: "HQ Training Rm A",
-    instructor: "Cpl. Nakamura",
-    capacity: 10,
-    assignedOfficerIds: ["o-1041"],
-  },
-  {
-    id: "t-005",
-    title: "EVOC Driving",
-    code: "DRV",
-    date: offsetDate(21),
-    durationHours: 6,
-    location: "Driver Track",
-    instructor: "Ofc. Reilly",
-    capacity: 8,
-    assignedOfficerIds: ["o-1187", "o-1012"],
-  },
-  {
-    id: "t-006",
-    title: "Radar / Lidar Recert",
-    code: "RAD",
-    date: offsetDate(28),
-    durationHours: 2,
-    location: "Traffic Div.",
-    instructor: "Lt. Fitzgerald",
-    capacity: 12,
-    assignedOfficerIds: ["o-1187"],
-  },
-];
+function buildTraining(): TrainingSession[] {
+  return [
+    {
+      id: "t-001",
+      title: "Firearms Requalification",
+      code: "FRA",
+      date: offsetDate(3),
+      durationHours: 4,
+      location: "Range 2",
+      instructor: "Sgt. Alvarez",
+      capacity: 12,
+      assignedOfficerIds: ["o-1041", "o-1012", "o-0871"],
+    },
+    {
+      id: "t-002",
+      title: "CPR / AED Recert",
+      code: "CPR",
+      date: offsetDate(6),
+      durationHours: 3,
+      location: "HQ Training Rm B",
+      instructor: "EMS Corps",
+      capacity: 20,
+      assignedOfficerIds: ["o-1122", "o-1012", "o-1444"],
+    },
+    {
+      id: "t-003",
+      title: "Crisis Intervention Team",
+      code: "CIT",
+      date: offsetDate(10),
+      durationHours: 8,
+      location: "Academy",
+      instructor: "Dr. Patel",
+      capacity: 16,
+      assignedOfficerIds: ["o-0904", "o-0733"],
+    },
+    {
+      id: "t-004",
+      title: "Taser Recertification",
+      code: "TSR",
+      date: offsetDate(14),
+      durationHours: 2,
+      location: "HQ Training Rm A",
+      instructor: "Cpl. Nakamura",
+      capacity: 10,
+      assignedOfficerIds: ["o-1041"],
+    },
+    {
+      id: "t-005",
+      title: "EVOC Driving",
+      code: "DRV",
+      date: offsetDate(21),
+      durationHours: 6,
+      location: "Driver Track",
+      instructor: "Ofc. Reilly",
+      capacity: 8,
+      assignedOfficerIds: ["o-1187", "o-1012"],
+    },
+    {
+      id: "t-006",
+      title: "Radar / Lidar Recert",
+      code: "RAD",
+      date: offsetDate(28),
+      durationHours: 2,
+      location: "Traffic Div.",
+      instructor: "Lt. Fitzgerald",
+      capacity: 12,
+      assignedOfficerIds: ["o-1187"],
+    },
+  ];
+}
 
-export const MOCK_FILES: AttachedFile[] = [
-  {
-    id: "f-001",
-    name: "alvarez-firearms-2025.pdf",
-    size: 482_391,
-    uploadedAt: offsetDate(-180),
-    officerId: "o-1041",
-    certificationId: "o-1041-FRA",
-  },
-  {
-    id: "f-002",
-    name: "okafor-cpr-card.jpg",
-    size: 118_220,
-    uploadedAt: offsetDate(-350),
-    officerId: "o-1122",
-    certificationId: "o-1122-CPR",
-  },
-  {
-    id: "f-003",
-    name: "cheng-radar-cert.pdf",
-    size: 302_110,
-    uploadedAt: offsetDate(-700),
-    officerId: "o-1187",
-    certificationId: "o-1187-RAD",
-  },
-  {
-    id: "f-004",
-    name: "nakamura-swat-quals.pdf",
-    size: 711_844,
-    uploadedAt: offsetDate(-220),
-    officerId: "o-1301",
-    certificationId: "o-1301-SWT",
-  },
-  {
-    id: "f-005",
-    name: "washington-k9-eval.pdf",
-    size: 284_401,
-    uploadedAt: offsetDate(-100),
-    officerId: "o-1250",
-    certificationId: "o-1250-K9",
-  },
-];
+function buildFiles(): AttachedFile[] {
+  return [
+    {
+      id: "f-001",
+      name: "alvarez-firearms-2025.pdf",
+      size: 482_391,
+      uploadedAt: offsetDate(-180),
+      officerId: "o-1041",
+      certificationId: "o-1041-FRA",
+    },
+    {
+      id: "f-002",
+      name: "okafor-cpr-card.jpg",
+      size: 118_220,
+      uploadedAt: offsetDate(-350),
+      officerId: "o-1122",
+      certificationId: "o-1122-CPR",
+    },
+    {
+      id: "f-003",
+      name: "cheng-radar-cert.pdf",
+      size: 302_110,
+      uploadedAt: offsetDate(-700),
+      officerId: "o-1187",
+      certificationId: "o-1187-RAD",
+    },
+  ];
+}
 
-export const MOCK_AUDIT: Audit[] = [
-  {
-    id: "a-001",
-    timestamp: offsetDate(0),
-    actor: "admin",
-    action: "renewed",
-    target: "o-1041 / FRA",
-  },
-  {
-    id: "a-002",
-    timestamp: offsetDate(-1),
-    actor: "admin",
-    action: "assigned",
-    target: "o-1122 → CPR session",
-  },
-  {
-    id: "a-003",
-    timestamp: offsetDate(-2),
-    actor: "admin",
-    action: "uploaded",
-    target: "nakamura-swat-quals.pdf",
-  },
-];
+function buildAudit(): Audit[] {
+  return [
+    {
+      id: "a-001",
+      timestamp: new Date().toISOString(),
+      actor: "system",
+      action: "seeded",
+      target: "demo dataset",
+    },
+  ];
+}
+
+/** Writes the seed dataset to Firestore. Safe to call — will overwrite ids. */
+export async function seedDemoData(): Promise<void> {
+  const db = firebaseDb();
+  const batch = writeBatch(db);
+
+  for (const o of buildOfficers()) {
+    batch.set(doc(db, "officers", o.id), o);
+  }
+  for (const t of buildTraining()) {
+    batch.set(doc(db, "training", t.id), t);
+  }
+  for (const f of buildFiles()) {
+    batch.set(doc(db, "files", f.id), f);
+  }
+  for (const a of buildAudit()) {
+    batch.set(doc(db, "audit", a.id), {
+      ...a,
+      serverTs: serverTimestamp(),
+    });
+  }
+  await batch.commit();
+}
+
+/** Quick check: is the officers collection empty? */
+export async function officersCollectionIsEmpty(): Promise<boolean> {
+  const db = firebaseDb();
+  const snap = await getDocs(collection(db, "officers"));
+  return snap.empty;
+}

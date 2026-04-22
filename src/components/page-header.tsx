@@ -9,12 +9,16 @@ export function PageHeader({
   query,
   onQueryChange,
   right,
+  onAdd,
+  addLabel = "ADD",
 }: {
   title: string;
   subtitle?: string;
   query?: string;
   onQueryChange?: (q: string) => void;
   right?: React.ReactNode;
+  onAdd?: () => void;
+  addLabel?: string;
 }) {
   const searchable = typeof onQueryChange === "function";
 
@@ -51,15 +55,20 @@ export function PageHeader({
 
       <div className="flex items-center gap-2">
         {right}
-        <button className="flex items-center gap-2 border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel)] px-3 py-1.5 text-[11px] uppercase tracking-wider hover:border-[color:var(--color-fg)] hover:text-[color:var(--color-fg-strong)]">
-          <Plus className="h-3.5 w-3.5" />
-          ADD
-        </button>
-        <button className="relative flex h-8 w-8 items-center justify-center border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel)] hover:border-[color:var(--color-fg)]">
+        {onAdd && (
+          <button
+            onClick={onAdd}
+            className="flex items-center gap-2 border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel)] px-3 py-1.5 text-[11px] uppercase tracking-wider hover:border-[color:var(--color-fg)] hover:text-[color:var(--color-fg-strong)]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {addLabel}
+          </button>
+        )}
+        <button
+          type="button"
+          className="relative flex h-8 w-8 items-center justify-center border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel)] hover:border-[color:var(--color-fg)]"
+        >
           <Bell className="h-3.5 w-3.5 text-[color:var(--color-fg)]" />
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[color:var(--color-danger)] px-1 text-[9px] font-semibold text-[color:var(--color-fg-strong)]">
-            3
-          </span>
         </button>
       </div>
     </header>

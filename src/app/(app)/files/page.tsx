@@ -6,11 +6,14 @@ import { cn, formatDate } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 
 export default function FilesPage() {
-  const { files, officers, logAudit } = useStore();
-  const [officerId, setOfficerId] = useState<string>(officers[0]?.id ?? "");
+  const { files, officers, attachFile } = useStore();
+  const [selectedOfficerId, setSelectedOfficerId] = useState<string | null>(null);
   const [certId, setCertId] = useState<string>("");
-  const [localFiles, setLocalFiles] = useState(files);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // Derived: prefer explicit selection, otherwise the first officer.
+  const officerId = selectedOfficerId ?? officers[0]?.id ?? "";
+  const setOfficerId = (id: string) => setSelectedOfficerId(id);
 
   const currentOfficer = officers.find((o) => o.id === officerId);
   const officerCerts = currentOfficer?.certifications ?? [];
@@ -18,26 +21,19 @@ export default function FilesPage() {
   const activeCertId = certId || defaultCertId;
 
   const officerFiles = useMemo(
-    () => localFiles.filter((f) => f.officerId === officerId),
-    [localFiles, officerId],
+    () => files.filter((f) => f.officerId === officerId),
+    [files, officerId],
   );
 
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f || !officerId || !activeCertId) return;
-    const entry = {
-      id: `f-${Date.now()}`,
+    await attachFile({
       name: f.name,
       size: f.size,
       uploadedAt: new Date().toISOString(),
       officerId,
       certificationId: activeCertId,
-    };
-    setLocalFiles((prev) => [entry, ...prev]);
-    logAudit({
-      actor: "admin",
-      action: "uploaded",
-      target: `${officerId} / ${f.name}`,
     });
     if (fileInput.current) fileInput.current.value = "";
   };
@@ -46,7 +42,7 @@ export default function FilesPage() {
     <>
       <PageHeader
         title="CERTIFICATION FILES"
-        subtitle={`${localFiles.length} attached documents`}
+        subtitle={`${files.length} attached documents`}
       />
       <div className="grid grid-cols-1 border-b border-[color:var(--color-line)] lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="border-b border-[color:var(--color-line)] lg:border-b-0 lg:border-r">

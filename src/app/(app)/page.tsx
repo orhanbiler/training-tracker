@@ -1,7 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertCircle, CheckCircle2, ChevronDown, Clock } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  Loader2,
+} from "lucide-react";
 import { useStore } from "@/lib/store";
 import { getOfficerStatus } from "@/lib/status";
 import { cn } from "@/lib/utils";
@@ -9,14 +15,17 @@ import { ExpirationTimeline } from "@/components/expiration-timeline";
 import { OfficerRow } from "@/components/officer-row";
 import { PageHeader } from "@/components/page-header";
 import { SidePanel } from "@/components/side-panel";
+import { EmptyState } from "@/components/empty-state";
+import { AddOfficerDialog } from "@/components/add-officer-dialog";
 import type { CertStatus, Officer } from "@/lib/types";
 
 const PREVIEW_COUNT = 3;
 
 export default function Page() {
-  const { officers, now } = useStore();
+  const { officers, now, loading, isEmpty } = useStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<CertStatus, boolean>>({
     expired: false,
     expiring: false,
@@ -52,8 +61,19 @@ export default function Page() {
         subtitle="Real-time certification status and training readiness"
         query={query}
         onQueryChange={setQuery}
+        onAdd={() => setAddOpen(true)}
+        addLabel="ADD OFFICER"
       />
 
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-20 text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-dim)]">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          LOADING ROSTER
+        </div>
+      ) : isEmpty ? (
+        <EmptyState onAddOfficer={() => setAddOpen(true)} />
+      ) : (
+        <>
       <div className="px-6 pt-5">
         <ExpirationTimeline officers={filtered} now={now} />
       </div>
@@ -104,11 +124,14 @@ export default function Page() {
           </div>
         )}
       </div>
+        </>
+      )}
 
       <SidePanel
         officerId={selectedId}
         onClose={() => setSelectedId(null)}
       />
+      <AddOfficerDialog open={addOpen} onClose={() => setAddOpen(false)} />
     </>
   );
 }

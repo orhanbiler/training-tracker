@@ -1,17 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   Calendar,
-  ChevronRight,
   FolderOpen,
   LayoutGrid,
+  LogOut,
   ShieldCheck,
   Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { getCertDaysRemaining, getCertStatus } from "@/lib/status";
 
 const NAV = [
@@ -24,9 +26,11 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { officers, now } = useStore();
+  const { user, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
 
-  // Quick filter counts — one row per certification across all officers.
   let expired = 0;
   let soon30 = 0;
   let soon60 = 0;
@@ -57,6 +61,16 @@ export function Sidebar() {
     { label: "COMPLIANT", value: compliant, color: "var(--color-ok)" },
   ];
 
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/login");
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   return (
     <aside className="sticky top-0 flex h-screen w-[220px] shrink-0 flex-col border-r border-[color:var(--color-line)] bg-[color:var(--color-panel)]">
       <div className="flex items-center gap-3 border-b border-[color:var(--color-line)] px-4 py-4">
@@ -65,7 +79,7 @@ export function Sidebar() {
         </div>
         <div className="min-w-0">
           <div className="truncate text-[12px] font-semibold tracking-wider text-[color:var(--color-fg-strong)]">
-            NORTHRIDGE PD
+            TRN//OPS
           </div>
           <div className="truncate text-[9px] uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
             TRAINING COMMAND
@@ -126,19 +140,28 @@ export function Sidebar() {
         </div>
       </nav>
 
-      <div className="flex items-center gap-3 border-t border-[color:var(--color-line)] px-4 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel-2)] text-[10px] uppercase tracking-wider text-[color:var(--color-fg-strong)]">
-          MA
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[11px] uppercase tracking-wider text-[color:var(--color-fg-strong)]">
-            DET. M. ANDERSON
+      <div className="border-t border-[color:var(--color-line)]">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel-2)] text-[10px] uppercase tracking-wider text-[color:var(--color-fg-strong)]">
+            {user?.initials ?? "??"}
           </div>
-          <div className="truncate text-[9px] uppercase tracking-wider text-[color:var(--color-muted)]">
-            TRAINING UNIT
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[11px] uppercase tracking-wider text-[color:var(--color-fg-strong)]">
+              {user?.displayName ?? "—"}
+            </div>
+            <div className="truncate text-[9px] uppercase tracking-wider text-[color:var(--color-muted)]">
+              {user?.role ?? "viewer"} · {user?.email ?? ""}
+            </div>
           </div>
         </div>
-        <ChevronRight className="h-4 w-4 text-[color:var(--color-muted)]" />
+        <button
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="flex w-full items-center justify-center gap-2 border-t border-[color:var(--color-line)] px-4 py-2 text-[10px] uppercase tracking-wider text-[color:var(--color-dim)] hover:bg-[color:var(--color-panel-2)] hover:text-[color:var(--color-fg-strong)] disabled:opacity-50"
+        >
+          <LogOut className="h-3 w-3" />
+          SIGN OUT
+        </button>
       </div>
     </aside>
   );

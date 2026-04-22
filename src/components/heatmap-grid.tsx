@@ -7,7 +7,10 @@ import {
   getCertDaysRemaining,
   getCertStatus,
 } from "@/lib/status";
-import { CERTIFICATION_CODES, CERTIFICATION_NAMES } from "@/lib/mock-data";
+import {
+  CERTIFICATION_CODES,
+  CERTIFICATION_NAMES,
+} from "@/lib/certifications";
 import type { Officer } from "@/lib/types";
 import { SidePanel } from "./side-panel";
 
