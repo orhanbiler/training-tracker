@@ -4,21 +4,22 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
+  Award,
   Calendar,
   FolderOpen,
   LayoutGrid,
   LogOut,
-  ShieldCheck,
   Timer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { getCertDaysRemaining, getCertStatus } from "@/lib/status";
+import { Logo } from "@/components/logo";
 
 const NAV = [
   { href: "/", label: "OVERVIEW", icon: LayoutGrid },
-  { href: "/grid", label: "CERTIFICATIONS", icon: ShieldCheck },
+  { href: "/grid", label: "CERTIFICATIONS", icon: Award },
   { href: "/training", label: "TRAINING", icon: Calendar },
   { href: "/expirations", label: "EXPIRATIONS", icon: Timer },
   { href: "/files", label: "FILES", icon: FolderOpen },
@@ -74,12 +75,10 @@ export function Sidebar() {
   return (
     <aside className="sticky top-0 flex h-screen w-[220px] shrink-0 flex-col border-r border-[color:var(--color-line)] bg-[color:var(--color-panel)]">
       <div className="flex items-center gap-3 border-b border-[color:var(--color-line)] px-4 py-4">
-        <div className="flex h-9 w-9 items-center justify-center border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel-2)]">
-          <ShieldCheck className="h-4 w-4 text-[color:var(--color-fg-strong)]" />
-        </div>
+        <Logo size={36} className="shrink-0" />
         <div className="min-w-0">
           <div className="truncate text-[12px] font-semibold tracking-wider text-[color:var(--color-fg-strong)]">
-            TRN//OPS
+            CHEVERLY PD
           </div>
           <div className="truncate text-[9px] uppercase tracking-[0.14em] text-[color:var(--color-muted)]">
             TRAINING COMMAND

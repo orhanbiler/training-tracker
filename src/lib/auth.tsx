@@ -11,11 +11,9 @@ import {
 import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
-  GoogleAuthProvider,
   onAuthStateChanged,
   setPersistence,
   signInWithEmailAndPassword,
-  signInWithPopup,
   signOut as fbSignOut,
   updateProfile,
   User as FbUser,
@@ -42,7 +40,6 @@ interface AuthValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -149,18 +146,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const signInWithGoogle = useCallback(async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(firebaseAuth(), provider);
-  }, []);
-
   const signOut = useCallback(async () => {
     await fbSignOut(firebaseAuth());
   }, []);
 
   const value = useMemo<AuthValue>(
-    () => ({ user, loading, signIn, signUp, signInWithGoogle, signOut }),
-    [user, loading, signIn, signUp, signInWithGoogle, signOut],
+    () => ({ user, loading, signIn, signUp, signOut }),
+    [user, loading, signIn, signUp, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
