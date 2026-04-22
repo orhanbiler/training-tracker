@@ -12,18 +12,31 @@ import {
   addDoc,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   DocumentData,
   getDoc,
   onSnapshot,
   QuerySnapshot,
   serverTimestamp,
-  setDoc,
   updateDoc,
 } from "firebase/firestore";
-import { firebaseDb } from "./firebase";
+import {
+  deleteObject,
+  getDownloadURL,
+  ref as storageRef,
+  uploadBytesResumable,
+} from "firebase/storage";
+import { firebaseDb, firebaseStorage } from "./firebase";
 import { useAuth } from "./auth";
 import type { AttachedFile, Audit, Officer, TrainingSession } from "./types";
+
+export interface UploadProgress {
+  /** 0..1 */
+  progress: number;
+  bytesTransferred: number;
+  totalBytes: number;
+}
 
 interface StoreValue {
   officers: Officer[];
@@ -45,7 +58,13 @@ interface StoreValue {
     officerId: string,
     cert: { code: string; name: string; issuedAt: string; expiresAt: string },
   ) => Promise<void>;
-  attachFile: (file: Omit<AttachedFile, "id">) => Promise<void>;
+  attachFile: (params: {
+    file: File;
+    officerId: string;
+    certificationId: string;
+    onProgress?: (progress: UploadProgress) => void;
+  }) => Promise<AttachedFile>;
+  deleteFile: (file: AttachedFile) => Promise<void>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -214,17 +233,81 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [actor, logAudit],
   );
 
-  const attachFile = useCallback(
-    async (file: Omit<AttachedFile, "id">) => {
+  const attachFile = useCallback<StoreValue["attachFile"]>(
+    async ({ file, officerId, certificationId, onProgress }) => {
+      const storage = firebaseStorage();
       const db = firebaseDb();
-      const ref = await addDoc(collection(db, "files"), file);
+
+      // Sanitize filename for storage path — keep extension, replace unsafe chars.
+      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+      const storagePath = `officers/${officerId}/${certificationId}/${Date.now()}-${safeName}`;
+      const ref = storageRef(storage, storagePath);
+      const task = uploadBytesResumable(ref, file, {
+        contentType: file.type || "application/octet-stream",
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        task.on(
+          "state_changed",
+          (snap) => {
+            onProgress?.({
+              progress:
+                snap.totalBytes > 0
+                  ? snap.bytesTransferred / snap.totalBytes
+                  : 0,
+              bytesTransferred: snap.bytesTransferred,
+              totalBytes: snap.totalBytes,
+            });
+          },
+          (err) => reject(err),
+          () => resolve(),
+        );
+      });
+
+      const downloadURL = await getDownloadURL(task.snapshot.ref);
+
+      const meta = {
+        name: file.name,
+        size: file.size,
+        contentType: file.type || undefined,
+        uploadedAt: new Date().toISOString(),
+        officerId,
+        certificationId,
+        storagePath,
+        downloadURL,
+        uploadedBy: actor,
+      };
+      const docRef = await addDoc(collection(db, "files"), meta);
       await logAudit({
         actor,
         action: "uploaded",
         target: file.name,
       });
-      // Touch the doc so the id lives on it too (optional)
-      await setDoc(ref, { ...file }, { merge: true });
+
+      return { id: docRef.id, ...meta };
+    },
+    [actor, logAudit],
+  );
+
+  const deleteFile = useCallback(
+    async (file: AttachedFile) => {
+      const db = firebaseDb();
+      if (file.storagePath) {
+        try {
+          await deleteObject(storageRef(firebaseStorage(), file.storagePath));
+        } catch (err) {
+          // If the object is already gone, swallow — the Firestore doc
+          // is the source of truth for "is this attachment listed?".
+          const code = (err as { code?: string })?.code;
+          if (code !== "storage/object-not-found") throw err;
+        }
+      }
+      await deleteDoc(doc(db, "files", file.id));
+      await logAudit({
+        actor,
+        action: "deleted file",
+        target: file.name,
+      });
     },
     [actor, logAudit],
   );
@@ -257,6 +340,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       createOfficer,
       addCertification,
       attachFile,
+      deleteFile,
     }),
     [
       officers,
@@ -272,6 +356,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       createOfficer,
       addCertification,
       attachFile,
+      deleteFile,
     ],
   );
 

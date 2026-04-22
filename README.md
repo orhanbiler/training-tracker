@@ -1,7 +1,8 @@
-# TRN//OPS — Police Training & Certification Command
+# Cheverly PD — Training Command
 
-A command-center / tactical interface for tracking officer training and
-certification expirations. Built to feel like a dispatch terminal during shift
+Training and certification tracking for the **Cheverly Police Department** —
+a command-center / tactical interface for monitoring officer certification
+status in real time. Built to feel like a dispatch terminal during shift
 briefing rather than a corporate dashboard.
 
 ## Stack
@@ -49,16 +50,29 @@ with two options:
 
 ## Firebase setup
 
-1. **Authentication** — enable **Email/Password** and **Google** providers
-   in the Firebase Console.
+1. **Authentication** — enable **Email/Password** in the Firebase Console.
 2. **Firestore** — create a database (Native mode).
-3. **Security rules** — a minimal "signed in only" starting point:
+3. **Storage** — enable Cloud Storage for uploaded certification documents.
+4. **Security rules** — minimal "signed in only" starting points:
 
+   **Firestore** (`firestore.rules`):
    ```
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
        match /{document=**} {
+         allow read, write: if request.auth != null;
+       }
+     }
+   }
+   ```
+
+   **Storage** (`storage.rules`):
+   ```
+   rules_version = '2';
+   service firebase.storage {
+     match /b/{bucket}/o {
+       match /officers/{officerId}/{allPaths=**} {
          allow read, write: if request.auth != null;
        }
      }

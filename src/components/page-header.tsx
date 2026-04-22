@@ -1,7 +1,8 @@
 "use client";
 
-import { Bell, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/notification-bell";
 
 export function PageHeader({
   title,
@@ -64,12 +65,7 @@ export function PageHeader({
             {addLabel}
           </button>
         )}
-        <button
-          type="button"
-          className="relative flex h-8 w-8 items-center justify-center border border-[color:var(--color-line-strong)] bg-[color:var(--color-panel)] hover:border-[color:var(--color-fg)]"
-        >
-          <Bell className="h-3.5 w-3.5 text-[color:var(--color-fg)]" />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   );

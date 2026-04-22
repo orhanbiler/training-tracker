@@ -34,9 +34,15 @@ export interface AttachedFile {
   id: string;
   name: string;
   size: number;
+  contentType?: string;
   uploadedAt: string; // ISO
   officerId: string;
   certificationId: string;
+  /** Firebase Storage object path — used for deletion. */
+  storagePath?: string;
+  /** Public download URL returned by Firebase Storage. */
+  downloadURL?: string;
+  uploadedBy?: string;
 }
 
 export interface Audit {

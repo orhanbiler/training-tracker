@@ -11,9 +11,20 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TRN//OPS — Training & Certification Command",
+  title: {
+    default: "Cheverly PD — Training Command",
+    template: "%s · Cheverly PD",
+  },
   description:
-    "Operational tracking for police department training and certification expirations.",
+    "Cheverly Police Department training and certification tracking — real-time expiration monitoring and compliance operations.",
+  applicationName: "Cheverly PD Training Command",
+  openGraph: {
+    title: "Cheverly PD — Training Command",
+    description:
+      "Real-time training and certification tracking for the Cheverly Police Department.",
+    siteName: "Cheverly PD Training Command",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

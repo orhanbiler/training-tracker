@@ -58,7 +58,7 @@ export default function Page() {
     <>
       <PageHeader
         title="COMMAND CENTER"
-        subtitle="Real-time certification status and training readiness"
+        subtitle="Cheverly PD — real-time certification status and training readiness"
         query={query}
         onQueryChange={setQuery}
         onAdd={() => setAddOpen(true)}
